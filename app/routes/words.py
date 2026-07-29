@@ -1,22 +1,23 @@
 import psycopg
-from flask import jsonify, request
-from app import app
+from flask import jsonify, request, Blueprint
 
-CONN_INFO = "host=localhost port=5432 dbname=wordbomb user=postgres password=secret"
+bp = Blueprint('words', __name__)
 
-@app.route('/')
+CONN_INFO = "host=localhost port=5432 dbname=wordbomb user=postgres password=devpassword"
+
+@bp.route('/')
 def index():
     return 'Word Bomb backend is alive'
 
-@app.route('/hello/<name>')
+@bp.route('/hello/<name>')
 def hello(name):
     return f'Hello, {name}'
 
-@app.route('/ping')
+@bp.route('/ping')
 def ping():
     return jsonify({'status': 'ok', 'game': 'word bomb'})
 
-@app.route('/validate', methods=['POST'])
+@bp.route('/validate', methods=['POST'])
 def validate():
     data = request.get_json(silent=True)
     if not data or 'word' not in data or 'prompt' not in data:
