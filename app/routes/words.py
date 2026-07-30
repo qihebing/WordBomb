@@ -1,4 +1,4 @@
-from flask import jsonify, request, Blueprint
+from flask import jsonify, render_template, request, Blueprint
 
 from app.word_validation import check_word
 
@@ -6,7 +6,7 @@ bp = Blueprint('words', __name__)
 
 @bp.route('/')
 def index():
-    return 'Word Bomb backend is alive'
+    return render_template('index.html')
 
 @bp.route('/hello/<name>')
 def hello(name):

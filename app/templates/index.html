@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Word Bomb</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>Word Bomb</h1>
+
+  <section id="lobby">
+    <h2>Join a game</h2>
+    <label>Your name <input id="name-input" type="text"></label>
+    <label>Game ID (leave blank to create a new game)
+      <input id="game-id-input" type="text">
+    </label>
+    <button id="join-btn">Join</button>
+    <p id="lobby-error" class="error"></p>
+  </section>
+
+  <section id="game" hidden>
+    <h2>Game <span id="game-id-display"></span></h2>
+    <p>Status: <span id="status"></span></p>
+    <ul id="players"></ul>
+
+    <button id="start-btn" hidden>Start game</button>
+
+    <div id="turn-info" hidden>
+      <p>Prompt: <strong id="prompt"></strong></p>
+      <p>Current turn: <span id="current-player"></span></p>
+      <p>Time left: <span id="countdown"></span>s</p>
+      <form id="word-form">
+        <input id="word-input" type="text" autocomplete="off" disabled>
+        <button type="submit" disabled>Submit</button>
+      </form>
+      <p id="word-error" class="error"></p>
+    </div>
+
+    <h3>Log</h3>
+    <ul id="log"></ul>
+  </section>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
