@@ -14,6 +14,7 @@ from app.game_state import (
     start_game,
     sync_players,
 )
+from app.word_validation import check_word
 
 
 def _fetch_players(game_id):
@@ -34,6 +35,7 @@ def _room_state(game_id):
     if room['status'] == 'in_progress':
         state['current_player'] = current_player(game_id)
         state['deadline'] = room['deadline']
+        state['prompt'] = room['prompt']
     return state
 
 
@@ -104,7 +106,7 @@ def handle_start_game(data):
 def handle_submit_word(data):
     game_id = data['game_id']
     player_name = data.get('player_name')
-    word = data['word']
+    word = data.get('word', '')
 
     room = get_room(game_id)
     if room is None or room['status'] != 'in_progress':
@@ -114,7 +116,16 @@ def handle_submit_word(data):
         emit('error', {'error': 'not your turn'})
         return
 
+    result = check_word(word, room['prompt'])
+    if not result['valid']:
+        emit('invalid_word', result)
+        return
+
     cancel_timer(game_id)
-    emit('word_submitted', {'player': player_name, 'word': word}, room=str(game_id))
+    emit(
+        'word_submitted',
+        {'player': player_name, 'word': result['word'], 'prompt': room['prompt']},
+        room=str(game_id),
+    )
     advance_turn(game_id)
     _schedule_turn(game_id)

@@ -1,4 +1,13 @@
+import random
+
 TURN_SECONDS = 15
+
+# Letter combos common enough that plenty of real words contain them.
+PROMPTS = [
+    'th', 'er', 'an', 'in', 'on', 'at', 'en', 'es', 'or', 'is',
+    'it', 'al', 'ar', 'st', 'to', 'nt', 'ng', 'se', 'ha', 'as',
+    'ou', 'io', 'le', 'ed', 'ct', 'ur', 'ss', 'ing', 'ent', 'ate',
+]
 
 rooms = {}
 
@@ -11,7 +20,12 @@ def _new_room():
         'turn_index': 0,
         'deadline': None,    # unix timestamp the current turn expires at
         'timer': None,       # eventlet GreenThread for the pending timeout
+        'prompt': None,      # letter combo the current word must contain
     }
+
+
+def new_prompt():
+    return random.choice(PROMPTS)
 
 
 def get_room(game_id):
@@ -29,6 +43,7 @@ def start_game(game_id):
     room['status'] = 'in_progress'
     room['turn_order'] = list(room['players'])
     room['turn_index'] = 0
+    room['prompt'] = new_prompt()
     return room
 
 
@@ -42,6 +57,7 @@ def current_player(game_id):
 def advance_turn(game_id):
     room = rooms[game_id]
     room['turn_index'] += 1
+    room['prompt'] = new_prompt()
     return current_player(game_id)
 
 

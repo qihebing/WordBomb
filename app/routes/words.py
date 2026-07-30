@@ -1,9 +1,8 @@
-import psycopg
 from flask import jsonify, request, Blueprint
 
-bp = Blueprint('words', __name__)
+from app.word_validation import check_word
 
-CONN_INFO = "host=localhost port=5432 dbname=wordbomb user=postgres password=devpassword"
+bp = Blueprint('words', __name__)
 
 @bp.route('/')
 def index():
@@ -23,17 +22,4 @@ def validate():
     if not data or 'word' not in data or 'prompt' not in data:
         return jsonify({'error': 'request body must include word and prompt'}), 400
 
-    word = data['word'].lower()
-    prompt = data['prompt'].lower()
-    contains_prompt = prompt in word
-
-    with psycopg.connect(CONN_INFO) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM words WHERE word = %s", (word,))
-            is_real_word = cur.fetchone() is not None
-
-    valid = contains_prompt and is_real_word
-    return jsonify({
-        'word': word, 'prompt': prompt, 'valid': valid,
-        'contains_prompt': contains_prompt, 'is_real_word': is_real_word,
-    })
+    return jsonify(check_word(data['word'], data['prompt']))
