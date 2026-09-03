@@ -10,7 +10,11 @@ from app.game_state import (
     advance_turn,
     cancel_timer,
     current_player,
+    end_game,
     get_room,
+    is_word_used,
+    mark_word_used,
+    record_timeout,
     start_game,
     sync_players,
 )
@@ -36,6 +40,8 @@ def _room_state(game_id):
         state['current_player'] = current_player(game_id)
         state['deadline'] = room['deadline']
         state['prompt'] = room['prompt']
+        state['alive'] = room['alive']
+        state['lives'] = room['lives']
     return state
 
 
@@ -50,14 +56,39 @@ def _schedule_turn(game_id):
     socketio.emit('turn_update', _room_state(game_id), room=str(game_id))
 
 
+def _finish_game(game_id, winner):
+    room = get_room(game_id)
+    cancel_timer(game_id)
+    end_game(game_id)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE games SET status = 'finished' WHERE id = %s", (game_id,))
+    socketio.emit(
+        'game_over', {'winner': winner, 'lives': room['lives']}, room=str(game_id)
+    )
+
+
 def _handle_timeout(game_id):
     room = get_room(game_id)
     if room is None or room['status'] != 'in_progress':
         return
 
     timed_out_player = current_player(game_id)
-    advance_turn(game_id)
-    socketio.emit('turn_timeout', {'player': timed_out_player}, room=str(game_id))
+    eliminated, winner = record_timeout(game_id)
+    socketio.emit(
+        'turn_timeout',
+        {
+            'player': timed_out_player,
+            'eliminated': eliminated,
+            'lives_left': room['lives'][timed_out_player],
+        },
+        room=str(game_id),
+    )
+
+    if winner is not None:
+        _finish_game(game_id, winner)
+        return
+
     _schedule_turn(game_id)
 
 
@@ -117,10 +148,14 @@ def handle_submit_word(data):
         return
 
     result = check_word(word, room['prompt'])
+    if result['valid'] and is_word_used(game_id, result['word']):
+        result['valid'] = False
+        result['already_used'] = True
     if not result['valid']:
         emit('invalid_word', result)
         return
 
+    mark_word_used(game_id, result['word'])
     cancel_timer(game_id)
     emit(
         'word_submitted',

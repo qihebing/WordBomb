@@ -21,10 +21,19 @@ function renderRoomState(state) {
   el('players').innerHTML = '';
   for (const name of state.players) {
     const li = document.createElement('li');
-    li.textContent = name;
-    if (state.status === 'in_progress' && name === state.current_player) {
-      li.textContent += ' (current turn)';
+    let text = name;
+    if (state.status === 'in_progress') {
+      if (!state.alive.includes(name)) {
+        text += ' — eliminated';
+      } else {
+        const lives = state.lives[name];
+        text += ` — ${lives} ${lives === 1 ? 'life' : 'lives'}`;
+        if (name === state.current_player) {
+          text += ' (current turn)';
+        }
+      }
     }
+    li.textContent = text;
     el('players').appendChild(li);
   }
 
@@ -108,11 +117,31 @@ async function joinGame() {
   });
 
   socket.on('invalid_word', (data) => {
-    el('word-error').textContent = `"${data.word}" is invalid (real word: ${data.is_real_word}, contains "${data.prompt}": ${data.contains_prompt})`;
+    if (data.already_used) {
+      el('word-error').textContent = `"${data.word}" was already used this game`;
+    } else {
+      el('word-error').textContent = `"${data.word}" is invalid (real word: ${data.is_real_word}, contains "${data.prompt}": ${data.contains_prompt})`;
+    }
   });
 
   socket.on('turn_timeout', (data) => {
-    logLine(`${data.player} ran out of time`);
+    if (data.eliminated) {
+      logLine(`${data.player} ran out of time and is eliminated!`);
+    } else {
+      logLine(`${data.player} ran out of time (${data.lives_left} ${data.lives_left === 1 ? 'life' : 'lives'} left)`);
+    }
+  });
+
+  socket.on('game_over', (data) => {
+    deadline = null;
+    el('status').textContent = 'finished';
+    el('turn-info').hidden = true;
+    el('start-btn').hidden = true;
+    el('word-input').disabled = true;
+    el('word-form').querySelector('button').disabled = true;
+    el('game-over').hidden = false;
+    el('winner-text').textContent = `${data.winner} wins!`;
+    logLine(`${data.winner} wins the game!`);
   });
 
   socket.on('error', (data) => {
