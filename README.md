@@ -49,6 +49,22 @@ A player joins a game via the REST API first (so the roster is durable), then co
 
 ## Running it locally
 
+### Room lifetime
+
+When the last connected player leaves or disconnects, the server deletes the game
+and its player records and cancels its timer. New games use the lowest available
+positive room ID. Multiple sockets for the same player keep that player present
+until their last socket leaves. A lost network connection is cleaned up when
+Socket.IO detects the disconnect; players can also use **Leave game**.
+Disconnected players must join again. Cleanup runs once at server startup
+and before creating each new room. It deletes rooms older than five minutes with no connected
+sockets, including rooms that never connected and records left by a server crash.
+Connected rooms are preserved regardless of age. Deleted rooms release their IDs
+and cascade-delete player records. Start the server with `python run.py` to run
+startup cleanup. Existing abandoned records are cleaned on that pass or the next
+room creation. There is no periodic database polling while the app is idle.
+Connection tracking, like gameplay state, assumes a single server process.
+
 Requires Python 3.13+ and Docker.
 
 ```powershell

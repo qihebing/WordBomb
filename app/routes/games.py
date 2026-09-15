@@ -1,16 +1,28 @@
 import psycopg
 from flask import jsonify, request, Blueprint
 from app.db import get_connection
+from app.room_cleanup import cleanup_abandoned_rooms
 
 bp = Blueprint('games', __name__)
 
 
 @bp.route('/games', methods=['POST'])
 def create_game():
+    cleanup_abandoned_rooms()
     with get_connection() as conn:
         with conn.cursor() as cur:
+            # Serialize allocation so simultaneous creates cannot select the same gap.
+            cur.execute('LOCK TABLE games IN EXCLUSIVE MODE')
             cur.execute(
-                "INSERT INTO games (status) VALUES ('waiting') RETURNING id, status, created_at"
+                """INSERT INTO games (id, status)
+                SELECT MIN(candidate), 'waiting'
+                FROM (
+                    SELECT 1 AS candidate
+                    UNION ALL
+                    SELECT id + 1 FROM games
+                ) AS candidates
+                WHERE NOT EXISTS (SELECT 1 FROM games WHERE id = candidate)
+                RETURNING id, status, created_at"""
             )
             game_id, status, created_at = cur.fetchone()
 

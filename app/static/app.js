@@ -107,6 +107,17 @@ async function joinGame() {
   el('game').hidden = false;
 
   socket = io();
+  socket.on('disconnect', () => {
+    socket.disconnect();
+    gameId = null;
+    playerName = null;
+    deadline = null;
+    el('game').hidden = true;
+    el('lobby').hidden = false;
+    el('game-over').hidden = true;
+    el('log').innerHTML = '';
+    el('lobby-error').textContent = 'You left the game. Join again to play.';
+  });
 
   socket.on('room_update', renderRoomState);
   socket.on('game_started', renderRoomState);
@@ -152,6 +163,7 @@ async function joinGame() {
 }
 
 el('join-btn').addEventListener('click', joinGame);
+el('leave-btn').addEventListener('click', () => socket.disconnect());
 
 el('start-btn').addEventListener('click', () => {
   socket.emit('start_game', { game_id: gameId });

@@ -1,7 +1,8 @@
 import time
 
 import eventlet
-from flask_socketio import join_room, emit
+from flask import request
+from flask_socketio import join_room, leave_room, emit
 
 from app import socketio
 from app.db import get_connection
@@ -17,8 +18,69 @@ from app.game_state import (
     record_timeout,
     start_game,
     sync_players,
+    rooms,
 )
 from app.word_validation import check_word
+from app.room_cleanup import serialize_membership
+
+# A player can have multiple tabs open; only their last socket counts as leaving.
+connections = {}
+
+
+def _leave(sid):
+    membership = connections.pop(sid, None)
+    if membership is None:
+        return
+    game_id, player_name = membership
+    leave_room(str(game_id), sid=sid)
+    if membership in connections.values():
+        return
+
+    occupied = any(gid == game_id for gid, _ in connections.values())
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if occupied:
+                cur.execute('DELETE FROM players WHERE game_id = %s AND name = %s',
+                            (game_id, player_name))
+            else:
+                cur.execute('DELETE FROM games WHERE id = %s', (game_id,))
+
+    room = get_room(game_id)
+    if room is None:
+        return
+    if not occupied:
+        cancel_timer(game_id)
+        rooms.pop(game_id, None)
+        return
+
+    room['players'] = [p for p in room['players'] if p != player_name]
+    if room['status'] == 'in_progress' and player_name in room['alive']:
+        active = current_player(game_id)
+        index = room['alive'].index(player_name)
+        room['alive'].pop(index)
+        room['lives'][player_name] = 0
+        if len(room['alive']) <= 1:
+            _finish_game(game_id, room['alive'][0] if room['alive'] else None)
+        else:
+            if index < room['turn_index']:
+                room['turn_index'] -= 1
+            room['turn_index'] %= len(room['alive'])
+            if active == player_name:
+                cancel_timer(game_id)
+                _schedule_turn(game_id)
+    socketio.emit('room_update', _room_state(game_id), room=str(game_id))
+
+
+@socketio.on('disconnect')
+@serialize_membership
+def handle_disconnect(reason=None):
+    _leave(request.sid)
+
+
+@socketio.on('leave')
+@serialize_membership
+def handle_leave(data=None):
+    _leave(request.sid)
 
 
 def _fetch_players(game_id):
@@ -93,8 +155,9 @@ def _handle_timeout(game_id):
 
 
 @socketio.on('join')
+@serialize_membership
 def handle_join(data):
-    game_id = data['game_id']
+    game_id = int(data['game_id'])
     player_name = data['player_name']
 
     players = _fetch_players(game_id)
@@ -105,6 +168,9 @@ def handle_join(data):
         emit('error', {'error': 'join the game via POST /games/<id>/join before connecting'})
         return
 
+    if request.sid in connections and connections[request.sid] != (game_id, player_name):
+        _leave(request.sid)
+    connections[request.sid] = (game_id, player_name)
     join_room(str(game_id))
     sync_players(game_id, players)
     emit('room_update', _room_state(game_id), room=str(game_id))
@@ -113,6 +179,9 @@ def handle_join(data):
 @socketio.on('start_game')
 def handle_start_game(data):
     game_id = data['game_id']
+    if connections.get(request.sid, (None, None))[0] != game_id:
+        emit('error', {'error': 'join the room before starting it'})
+        return
     room = get_room(game_id)
     if room is None:
         emit('error', {'error': 'join the room before starting it'})
@@ -138,6 +207,9 @@ def handle_submit_word(data):
     game_id = data['game_id']
     player_name = data.get('player_name')
     word = data.get('word', '')
+    if connections.get(request.sid) != (game_id, player_name):
+        emit('error', {'error': 'join the room before submitting a word'})
+        return
 
     room = get_room(game_id)
     if room is None or room['status'] != 'in_progress':
