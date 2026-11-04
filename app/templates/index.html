@@ -26,10 +26,13 @@
 
     <button id="start-btn" hidden>Start game</button>
 
+    <div id="fuse-display" hidden>
+      <p id="fuse-label" aria-live="polite"></p>
+      <div id="fuse-line" aria-hidden="true"></div>
+    </div>
+
     <div id="turn-info" hidden>
       <p>Prompt: <strong id="prompt"></strong></p>
-      <p>Current turn: <span id="current-player"></span></p>
-      <p hidden>Time left: <span id="countdown"></span>s</p>
       <form id="word-form">
         <input id="word-input" type="text" autocomplete="off" disabled>
         <button type="submit" disabled>Submit</button>

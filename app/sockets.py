@@ -103,6 +103,7 @@ def _room_state(game_id):
     if room['status'] == 'in_progress':
         state['current_player'] = current_player(game_id)
         state['deadline'] = room['deadline']
+        state['turn_started_at'] = room['turn_started_at']
         state['prompt'] = room['prompt']
         state['alive'] = room['alive']
         state['lives'] = room['lives']
@@ -112,7 +113,8 @@ def _room_state(game_id):
 def _start_timer(game_id):
     room = get_room(game_id)
     turn_seconds = random.randint(MIN_TURN_SECONDS, MAX_TURN_SECONDS)
-    room['deadline'] = time.time() + turn_seconds
+    room['turn_started_at'] = time.time()
+    room['deadline'] = room['turn_started_at'] + turn_seconds
     room['timer'] = eventlet.spawn_after(turn_seconds, _handle_timeout, game_id)
 
 

@@ -1,7 +1,9 @@
 let gameId = null;
 let playerName = null;
 let socket = null;
-let deadline = null;
+let fuseTurn = null;
+let boomUntil = 0;
+let boomPlayer = null;
 
 const el = (id) => document.getElementById(id);
 
@@ -43,11 +45,14 @@ function renderRoomState(state) {
   el('turn-info').hidden = !inProgress;
   if (inProgress) {
     el('prompt').textContent = state.prompt;
-    el('current-player').textContent = state.current_player;
-    deadline = state.deadline;
+    fuseTurn = {
+      player: state.current_player,
+      startedAt: state.turn_started_at,
+    };
   } else {
-    deadline = null;
+    fuseTurn = null;
   }
+  renderFuse();
 
   const myTurn = isMyTurn(state);
   el('word-input').disabled = !myTurn;
@@ -57,14 +62,26 @@ function renderRoomState(state) {
   }
 }
 
-setInterval(() => {
-  if (deadline === null) {
-    el('countdown').textContent = '-';
+function renderFuse() {
+  const exploding = Date.now() < boomUntil;
+  el('fuse-display').hidden = !exploding && fuseTurn === null;
+  if (!exploding && fuseTurn === null) return;
+
+  const name = exploding ? boomPlayer : fuseTurn.player;
+  el('fuse-label').textContent = `The fuse is lit for ${name}.`;
+  el('fuse-line').classList.toggle('boom', exploding);
+  if (exploding) {
+    el('fuse-line').textContent = 'BOOM!';
     return;
   }
-  const remaining = Math.max(0, deadline - Date.now() / 1000);
-  el('countdown').textContent = remaining.toFixed(1);
-}, 200);
+
+  // Burn for ten seconds, then keep two segments until the server times out.
+  const elapsed = Math.max(0, Date.now() / 1000 - fuseTurn.startedAt);
+  const burned = Math.floor(Math.min(elapsed / 10, 1) * 22);
+  el('fuse-line').textContent = `${' '.repeat(burned)}*${'-'.repeat(24 - burned)}`;
+}
+
+setInterval(renderFuse, 100);
 
 async function joinGame() {
   el('lobby-error').textContent = '';
@@ -111,7 +128,10 @@ async function joinGame() {
     socket.disconnect();
     gameId = null;
     playerName = null;
-    deadline = null;
+    fuseTurn = null;
+    boomUntil = 0;
+    boomPlayer = null;
+    renderFuse();
     el('game').hidden = true;
     el('lobby').hidden = false;
     el('game-over').hidden = true;
@@ -136,6 +156,9 @@ async function joinGame() {
   });
 
   socket.on('turn_timeout', (data) => {
+    boomPlayer = data.player;
+    boomUntil = Date.now() + 1000;
+    renderFuse();
     if (data.eliminated) {
       logLine(`${data.player} ran out of time and is eliminated!`);
     } else {
@@ -144,7 +167,8 @@ async function joinGame() {
   });
 
   socket.on('game_over', (data) => {
-    deadline = null;
+    fuseTurn = null;
+    renderFuse();
     el('status').textContent = 'finished';
     el('turn-info').hidden = true;
     el('start-btn').hidden = true;

@@ -24,3 +24,28 @@ label {
   font-size: 0.9em;
   color: #444;
 }
+#fuse-display {
+  margin: 1.5rem 0;
+}
+
+#fuse-label {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+#fuse-line {
+  min-height: 1.5em;
+  font-family: monospace;
+  font-size: clamp(1rem, 4vw, 1.6rem);
+  font-weight: bold;
+  line-height: 1.5;
+  white-space: pre;
+  color: #b45309;
+}
+
+#fuse-line.boom {
+  color: #c62828;
+  font-size: 2rem;
+}

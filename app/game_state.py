@@ -23,6 +23,7 @@ def _new_room():
         'turn_index': 0,
         'lives': {},         # player -> remaining lives
         'used_words': set(),
+        'turn_started_at': None,  # unix timestamp for the fuse animation
         'deadline': None,    # unix timestamp the current turn expires at
         'timer': None,       # eventlet GreenThread for the pending timeout
         'prompt': None,      # letter combo the current word must contain
