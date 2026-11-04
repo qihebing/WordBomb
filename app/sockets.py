@@ -1,3 +1,4 @@
+import random
 import time
 
 import eventlet
@@ -7,7 +8,8 @@ from flask_socketio import join_room, leave_room, emit
 from app import socketio
 from app.db import get_connection
 from app.game_state import (
-    TURN_SECONDS,
+    MIN_TURN_SECONDS,
+    MAX_TURN_SECONDS,
     advance_turn,
     cancel_timer,
     current_player,
@@ -109,8 +111,9 @@ def _room_state(game_id):
 
 def _start_timer(game_id):
     room = get_room(game_id)
-    room['deadline'] = time.time() + TURN_SECONDS
-    room['timer'] = eventlet.spawn_after(TURN_SECONDS, _handle_timeout, game_id)
+    turn_seconds = random.randint(MIN_TURN_SECONDS, MAX_TURN_SECONDS)
+    room['deadline'] = time.time() + turn_seconds
+    room['timer'] = eventlet.spawn_after(turn_seconds, _handle_timeout, game_id)
 
 
 def _schedule_turn(game_id):

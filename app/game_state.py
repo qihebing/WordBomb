@@ -1,6 +1,7 @@
 import random
 
-TURN_SECONDS = 15
+MIN_TURN_SECONDS = 12
+MAX_TURN_SECONDS = 18
 STARTING_LIVES = 3
 
 # Letter combos common enough that plenty of real words contain them.
