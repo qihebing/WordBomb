@@ -15,6 +15,23 @@ Open it in two browser tabs (or send the link to a friend) to actually play — 
 - A word can't be reused within the same game once it's been played.
 - 3 lives per player. Timing out costs a life; running out of lives eliminates you. Last player remaining wins.
 
+### Prompt difficulty
+
+Prompts contain exactly two or three letters. At the first game start, the server
+counts how many dictionary words contain each prompt (once per word) and caches
+four pools: 2,000+ matches, 500-1,999, 100-499, and 25-99. Empty pools are skipped;
+prompts with fewer than 25 possible answers are excluded.
+
+Games begin with the easiest available pool. After every surviving player gives
+three valid answers without anyone losing a life, the next turn uses the next
+harder pool. Progress then starts over, and difficulty stops at the hardest pool.
+A timeout or a player's departure resets everyone's progress without reducing
+the current difficulty. Invalid or reused words do not count as answers.
+The existing random 12-18 second turn limit and fuse behavior are unchanged.
+
+Restart the server after replacing the dictionary to rebuild the cached pools.
+No database schema changes or separate prompt-generation step are needed.
+
 ## Tech stack
 
 | Piece | Choice | Why |

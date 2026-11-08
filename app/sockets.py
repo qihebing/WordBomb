@@ -18,10 +18,12 @@ from app.game_state import (
     is_word_used,
     mark_word_used,
     record_timeout,
+    reset_difficulty_progress,
     start_game,
     sync_players,
     rooms,
 )
+from app.prompt_difficulty import get_prompt_tiers
 from app.word_validation import check_word
 from app.room_cleanup import serialize_membership
 
@@ -61,6 +63,7 @@ def _leave(sid):
         index = room['alive'].index(player_name)
         room['alive'].pop(index)
         room['lives'][player_name] = 0
+        reset_difficulty_progress(game_id)
         if len(room['alive']) <= 1:
             _finish_game(game_id, room['alive'][0] if room['alive'] else None)
         else:
@@ -198,11 +201,17 @@ def handle_start_game(data):
         emit('error', {'error': 'need at least 2 players to start'})
         return
 
+    try:
+        prompt_tiers = get_prompt_tiers()
+    except ValueError as error:
+        emit('error', {'error': str(error)})
+        return
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE games SET status = 'in_progress' WHERE id = %s", (game_id,))
 
-    start_game(game_id)
+    start_game(game_id, prompt_tiers)
     _start_timer(game_id)
     emit('game_started', _room_state(game_id), room=str(game_id))
 
